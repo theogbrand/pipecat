@@ -32,8 +32,8 @@ async def run_bot(id: int, csv_writer):
         for i in range(3):
             room_info = await rest.get_room_from_url(room.url)
             current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-            if not room_info.config.enable_dialout:
-                csv_writer.writerow([id, room_info.config.enable_dialout, current_time])
+            # if not room_info.config.enable_dialout:
+            csv_writer.writerow([id, room_info.config.enable_dialout, current_time])
             await asyncio.sleep(1 * i)
 
 
@@ -50,31 +50,6 @@ async def main():
         await asyncio.gather(*bots)
         bots = [run_bot(i, csv_writer) for i in range(100, 150)]
         await asyncio.gather(*bots)
-
-        # Read the CSV file into memory
-        with open("output.csv", mode="r", newline="") as file:
-            csv_reader = csv.reader(file)
-            header = next(csv_reader, None)  # Read the header row
-            rows = list(csv_reader)  # Read the remaining rows
-
-        if header:
-            # Sort the rows by the bot_id column (index 0)
-            rows.sort(key=lambda row: int(row[0]))
-
-            # Write the sorted rows to the final CSV file
-            with open("output_sorted.csv", mode="w", newline="") as file:
-                csv_writer = csv.writer(file)
-                csv_writer.writerow(["bot_id", "enable_dialout", "timestamp"])
-                csv_writer.writerows(rows)  # Write the sorted rows
-
-        # Write the sorted rows to the final CSV file
-        with open("output_sorted.csv", mode="w", newline="") as file:
-            csv_writer = csv.writer(file)
-            csv_writer.writerow(["bot_id", "enable_dialout", "timestamp"])
-            csv_writer.writerows(rows)  # Write the sorted rows
-
-        # Remove the temporary output.csv file
-        os.remove("output.csv")
 
 
 if __name__ == "__main__":
