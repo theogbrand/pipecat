@@ -23,18 +23,23 @@ async def run_bot(id: int, csv_writer):
         # Create daily.co room with dialin and dialout enabled
         room_params = DailyRoomParams(properties=DailyRoomProperties(enable_dialout=True))
 
-        # Create the room with the specified parameters
-        room = await rest.create_room(room_params)
-        # token = await rest.get_token(room.url, 60 * 60, True)
-        # print(f"{id}: Room Token: {token}")
-
-        # Check the room properties three times waiting 1 second between each check
-        for i in range(3):
+        try:
+            # Create the room with the specified parameters
+            room = await rest.create_room(room_params)
+            # token = await rest.get_token(room.url, 60 * 60, True)
+            # print(f"{id}: Room Token: {token}")
             room_info = await rest.get_room_from_url(room.url)
             current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
             if not room_info.config.enable_dialout:
                 csv_writer.writerow([id, room_info.config.enable_dialout, current_time])
-            await asyncio.sleep(1 * i)
+
+        except Exception as e:
+            print(f"Error creating room for bot {id}: {e}")
+            print("Sleeping for 10 seconds")
+            await asyncio.sleep(10)
+            csv_writer.writerow(
+                [id, "Rate Limit Error", datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]]
+            )
 
 
 async def main():
