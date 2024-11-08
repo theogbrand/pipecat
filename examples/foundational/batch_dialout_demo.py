@@ -44,14 +44,12 @@ async def main():
         # Write the header row
         csv_writer.writerow(["bot_id", "enable_dialout", "timestamp"])
 
-        bots = [run_bot(i, csv_writer) for i in range(10)]
+        bots = [run_bot(i, csv_writer) for i in range(50)]
         await asyncio.gather(*bots)
-        # bots = [run_bot(i, csv_writer) for i in range(10, 20)]
-        # await asyncio.gather(*bots)
-        # bots = [run_bot(i, csv_writer) for i in range(20, 30)]
-        # await asyncio.gather(*bots)
-        # bots = [run_bot(i, csv_writer) for i in range(30, 40)]
-        # await asyncio.gather(*bots)
+        bots = [run_bot(i, csv_writer) for i in range(50, 100)]
+        await asyncio.gather(*bots)
+        bots = [run_bot(i, csv_writer) for i in range(100, 150)]
+        await asyncio.gather(*bots)
 
         # Read the CSV file into memory
         with open("output.csv", mode="r", newline="") as file:
