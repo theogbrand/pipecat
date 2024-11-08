@@ -32,8 +32,8 @@ async def run_bot(id: int, csv_writer):
         for i in range(3):
             room_info = await rest.get_room_from_url(room.url)
             current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-            # if not room_info.config.enable_dialout:
-            csv_writer.writerow([id, room_info.config.enable_dialout, current_time])
+            if not room_info.config.enable_dialout:
+                csv_writer.writerow([id, room_info.config.enable_dialout, current_time])
             await asyncio.sleep(1 * i)
 
 
