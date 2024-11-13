@@ -77,9 +77,9 @@ async def main():
         # Write the header row
         csv_writer.writerow(["bot_id", "enable_dialout", "timestamp"])
 
-        for run_number in range(8):
+        for run_number in range(1):
             print(f"-- Starting batch run number: {run_number}")
-            bots = [run_bot(i, run_number, csv_writer) for i in range(12)]
+            bots = [run_bot(i, run_number, csv_writer) for i in range(1)]
             await asyncio.gather(*bots)
             print("-- Batch finished, waiting 60 seconds...")
             await asyncio.sleep(BOT_RUN_TIME + 60)
