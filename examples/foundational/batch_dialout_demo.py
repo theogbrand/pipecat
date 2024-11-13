@@ -23,11 +23,12 @@ async def run_bot(id: int, csv_writer):
             aiohttp_session=aiohttp_session,
         )
         # Create daily.co room with dialin and dialout enabled
-        exp = time.time() + 90
+        exp = time.time() + 120
         room_params = DailyRoomParams(
             properties=DailyRoomProperties(
                 exp=exp,
                 enable_dialout=True,
+                eject_at_room_exp=True,
             )
         )
 
@@ -55,7 +56,7 @@ async def run_bot(id: int, csv_writer):
                 [id, "Rate Limit Error", datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]]
             )
 
-        bot_proc = f"python3 -m batch_dialout_bot -u {room.url} -t {token} -i {id}-Daily"
+        bot_proc = f"python3 -m batch_dialout_bot -u {room.url} -t {token} -i {id}"
 
         try:
             subprocess.Popen(
@@ -71,18 +72,13 @@ async def main():
         csv_writer = csv.writer(file)
         # Write the header row
         csv_writer.writerow(["bot_id", "enable_dialout", "timestamp"])
-        # bots = [run_bot(i, csv_writer) for i in range(1)]
-        bots = [run_bot(i, csv_writer) for i in range(20)]
-        await asyncio.gather(*bots)
-        print("First batch finished waiting 120 seconds...")
-        await asyncio.sleep(120)
-        bots = [run_bot(i, csv_writer) for i in range(20, 5)]
-        print("Starting second batch.")
-        await asyncio.gather(*bots)
-        print("Second batch finished.")
 
-        # bots = [run_bot(i, csv_writer) for i in range(100, 150)]
-        # await asyncio.gather(*bots)
+        for _ in range(2):
+            bots = [run_bot(i, csv_writer) for i in range(12)]
+            await asyncio.gather(*bots)
+            print("Batch finished waiting 15 seconds...")
+            await asyncio.sleep(15)
+            print("Finished waiting 15 seconds...")
 
 
 if __name__ == "__main__":
