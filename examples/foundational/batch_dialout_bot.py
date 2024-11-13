@@ -143,7 +143,17 @@ async def main(room_url: str, token: str, callId: str, run_number: str):
                 "preset": "audio-only",
             },
         }
-        await transport.start_recording(streaming_settings=streaming_settings)
+
+        backoff_time = 1  # Initial backoff time in seconds
+        for _ in range(5):
+            try:
+                await transport.start_recording(streaming_settings=streaming_settings)
+                break  # Break out of the loop if start_dialout is successful
+            except Exception as e:
+                logger.error(f"Error starting recording: {e}")
+                await asyncio.sleep(backoff_time)  # Wait for the current backoff time
+                backoff_time *= 2  # Double the backoff time for the next attempt
+
         await transport.capture_participant_transcription(participant["participantId"])
         await task.queue_frames([LLMMessagesFrame(messages)])
 
