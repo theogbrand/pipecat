@@ -13,8 +13,10 @@ from pipecat.transports.services.helpers.daily_rest import (
     DailyRoomProperties,
 )
 
+BOT_RUN_TIME = 90
 
-async def run_bot(id: int, csv_writer):
+
+async def run_bot(id: int, run_number: int, csv_writer):
     async with aiohttp.ClientSession() as aiohttp_session:
         print(f"Starting bot number: {id}")
         rest = DailyRESTHelper(
@@ -22,13 +24,15 @@ async def run_bot(id: int, csv_writer):
             daily_api_url=os.getenv("DAILY_API_URL", "https://api.daily.co/v1"),
             aiohttp_session=aiohttp_session,
         )
+
         # Create daily.co room with dialin and dialout enabled
-        exp = time.time() + 120
+        exp = time.time() + BOT_RUN_TIME
         room_params = DailyRoomParams(
             properties=DailyRoomProperties(
                 exp=exp,
                 enable_dialout=True,
                 eject_at_room_exp=True,
+                enable_recording="cloud",
             )
         )
 
@@ -56,7 +60,7 @@ async def run_bot(id: int, csv_writer):
                 [id, "Rate Limit Error", datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]]
             )
 
-        bot_proc = f"python3 -m batch_dialout_bot -u {room.url} -t {token} -i {id}"
+        bot_proc = f"python3 -m batch_dialout_bot -u {room.url} -t {token} -i {id} -r {run_number}"
 
         try:
             subprocess.Popen(
@@ -73,12 +77,13 @@ async def main():
         # Write the header row
         csv_writer.writerow(["bot_id", "enable_dialout", "timestamp"])
 
-        for _ in range(2):
-            bots = [run_bot(i, csv_writer) for i in range(12)]
+        for run_number in range(5):
+            print(f"-- Starting batch run number: {run_number}")
+            bots = [run_bot(i, run_number, csv_writer) for i in range(12)]
             await asyncio.gather(*bots)
-            print("Batch finished waiting 15 seconds...")
-            await asyncio.sleep(15)
-            print("Finished waiting 15 seconds...")
+            print("-- Batch finished, waiting 60 seconds...")
+            await asyncio.sleep(BOT_RUN_TIME + 60)
+            print("-- Finished waiting 60 seconds...")
 
 
 if __name__ == "__main__":

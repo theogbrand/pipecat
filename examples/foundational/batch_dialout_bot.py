@@ -18,13 +18,15 @@ from pipecat.transports.services.daily import DailyParams, DailyTransport
 from pipecat.transports.services.helpers.daily_rest import DailyRESTHelper
 
 logger.remove(0)
-logger.add(sys.stderr, level="DEBUG")
+logger.add(sys.stderr, level="INFO")
 
 daily_api_key = os.getenv("DAILY_API_KEY", "")
 daily_api_url = os.getenv("DAILY_API_URL", "https://api.daily.co/v1")
 
+recording_id = None
 
-async def main(room_url: str, token: str, callId: str):
+
+async def main(room_url: str, token: str, callId: str, run_number: str):
     transport = DailyTransport(
         room_url,
         token,
@@ -71,31 +73,44 @@ async def main(room_url: str, token: str, callId: str):
 
     task = PipelineTask(pipeline, PipelineParams(allow_interruptions=True))
 
-    def get_phone_number(callId: int) -> str:
-        if callId % 2 == 0:
-            return "+14155204406"
+    def get_phone_number(callId: int, run_number: int) -> str:
+        # Avoca 818-722-9086
+        # Dom:  "+1 562-286-9362"
+
+        if run_number % 2 == 0:
+            phone_numbers = [
+                "+12097135124",  # James
+                "+12097135125",  # James
+                "+19499870006",  # Varun
+            ]
+            return phone_numbers[callId % len(phone_numbers)]
         else:
-            return "+19499870006"
+            phone_numbers = [
+                "+14155204406",  # James
+                "+18187229086",  # James (Avoca)
+                "+16673870006",  # Varun
+            ]
+            return phone_numbers[callId % len(phone_numbers)]
 
     @transport.event_handler("on_call_state_updated")
     async def on_call_state_updated(transport, state):
         logger.info(f"on_call_state_updated, state: {state}")
-        dialout_id = None
+        # dialout_id = None
 
         if state == "joined":
             logger.info(f"on_call_state_updated {state}")
 
             backoff_time = 1  # Initial backoff time in seconds
 
-            for _ in range(3):
+            for _ in range(5):
                 try:
-                    phone_number = get_phone_number(int(callId))
-                    logger.debug(f"Starting dialout to {phone_number}")
+                    phone_number = get_phone_number(int(callId), int(run_number))
+                    logger.info(f"Starting dialout to {phone_number}")
                     settings = {
                         "phoneNumber": phone_number,
                         "display_name": "Dialout User",
                     }
-                    dialout_id = await transport.start_dialout(settings)
+                    await transport.start_dialout(settings)
                     break  # Break out of the loop if start_dialout is successful
                 except Exception as e:
                     logger.error(f"Error starting dialout: {e}")
@@ -114,13 +129,38 @@ async def main(room_url: str, token: str, callId: str):
                 )
                 await rest.delete_room_by_url(room_url)
 
-    @transport.event_handler("on_first_participant_joined")
-    async def on_first_participant_joined(transport, participant):
-        await transport.capture_participant_transcription(participant["id"])
+    # @transport.event_handler("on_first_participant_joined")
+    # async def on_first_participant_joined(transport, participant):
+    #     await transport.capture_participant_transcription(participant["id"])
+    #     await task.queue_frames([LLMMessagesFrame(messages)])
+
+    @transport.event_handler("on_dialout_answered")
+    async def on_dialout_answered(transport, participant):
+        logger.info(f"on_dialout_answered {participant["participantId"]}")
+        streaming_settings = {
+            "minIdleTimeOut": 10,
+            "layout": {
+                "preset": "audio-only",
+            },
+        }
+        await transport.start_recording(streaming_settings=streaming_settings)
+        await transport.capture_participant_transcription(participant["participantId"])
         await task.queue_frames([LLMMessagesFrame(messages)])
+
+    @transport.event_handler("on_recording_started")
+    async def on_recording_started(transport, stream_id):
+        global recording_id
+        recording_id = stream_id
+        logger.info(f"Recording started: {recording_id}")
 
     @transport.event_handler("on_participant_left")
     async def on_participant_left(transport, participant, reason):
+        await transport.stop_recording(recording_id)
+        await task.queue_frame(EndFrame())
+
+    @transport.event_handler("on_recording_error")
+    async def on_recording_error(transport, error):
+        logger.error(f"Recording error: {error}")
         await task.queue_frame(EndFrame())
 
     runner = PipelineRunner()
@@ -133,10 +173,11 @@ if __name__ == "__main__":
     parser.add_argument("-u", type=str, help="Room URL")
     parser.add_argument("-t", type=str, help="Token")
     parser.add_argument("-i", type=str, help="Call ID")
+    parser.add_argument("-r", type=str, help="Run Number")
     config = parser.parse_args()
 
     try:
-        asyncio.run(main(config.u, config.t, config.i))
+        asyncio.run(main(config.u, config.t, config.i, config.r))
     except Exception as e:
         logger.error(f"++++++++++++++ Error: {e}")
         sys.exit(1)
