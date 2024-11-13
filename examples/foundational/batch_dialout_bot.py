@@ -150,17 +150,24 @@ async def main(room_url: str, token: str, callId: str, run_number: str):
     @transport.event_handler("on_recording_started")
     async def on_recording_started(transport, stream_id):
         global recording_id
-        recording_id = stream_id
+        recording_id = stream_id["streamId"]
         logger.info(f"Recording started: {recording_id}")
 
     @transport.event_handler("on_participant_left")
     async def on_participant_left(transport, participant, reason):
+        logger.info(f"Participant left: {participant}, reason: {reason}")
+        logger.info(f"Stopping recording: {recording_id}")
         await transport.stop_recording(recording_id)
         await task.queue_frame(EndFrame())
 
     @transport.event_handler("on_recording_error")
     async def on_recording_error(transport, error):
         logger.error(f"Recording error: {error}")
+        await task.queue_frame(EndFrame())
+
+    @transport.event_handler("on_dialout_error")
+    async def on_dialout_error(transport, error):
+        logger.error(f"Dialout error: {error}")
         await task.queue_frame(EndFrame())
 
     runner = PipelineRunner()

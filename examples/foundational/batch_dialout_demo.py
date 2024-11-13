@@ -13,7 +13,7 @@ from pipecat.transports.services.helpers.daily_rest import (
     DailyRoomProperties,
 )
 
-BOT_RUN_TIME = 90
+BOT_RUN_TIME = 300
 
 
 async def run_bot(id: int, run_number: int, csv_writer):
@@ -77,7 +77,7 @@ async def main():
         # Write the header row
         csv_writer.writerow(["bot_id", "enable_dialout", "timestamp"])
 
-        for run_number in range(5):
+        for run_number in range(17):
             print(f"-- Starting batch run number: {run_number}")
             bots = [run_bot(i, run_number, csv_writer) for i in range(12)]
             await asyncio.gather(*bots)
