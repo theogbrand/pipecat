@@ -18,6 +18,7 @@ from pipecat.processors.aggregators.openai_llm_context import OpenAILLMContext
 from pipecat.services.openai import OpenAILLMService
 from pipecat.services.xtts import XTTSService
 from pipecat.transports.services.daily import DailyParams, DailyTransport
+from pipecat.transcriptions.language import Language
 
 from runner import configure
 
@@ -49,8 +50,9 @@ async def main():
 
         tts = XTTSService(
             aiohttp_session=session,
-            voice_id="Claribel Dervla",
-            base_url="http://localhost:8000",
+            voice_id="Marcos Rudaski",
+            language=Language.EN,
+            base_url="http://13.59.71.92:8000",
         )
 
         llm = OpenAILLMService(api_key=os.getenv("OPENAI_API_KEY"), model="gpt-4o")
