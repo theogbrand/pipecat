@@ -4,6 +4,7 @@ import sys
 
 import aiohttp
 from dotenv import load_dotenv
+
 from loguru import logger
 
 load_dotenv(override=True)
@@ -24,7 +25,19 @@ async def main(room_url: str, token: str):
     from pipecat.services.openai import OpenAILLMService
     from pipecat.transports.services.daily import DailyParams, DailyTransport
     from pipecat.transcriptions.language import Language
+    from pipecat.services.whisper import WhisperSTTService, Model
+    from pipecat.services.deepgram import DeepgramSTTService
+    from pipecat.frames.frames import Frame, TranscriptionFrame
+    from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
+
+    # from pipecat.frames.frames import (
+    #     BotInterruptionFrame,
+    #     StopInterruptionFrame,
+    #     UserStartedSpeakingFrame,
+    #     UserStoppedSpeakingFrame,
+    # )
     from loguru import logger
+    from deepgram import LiveOptions
 
     class SealionLLMService(OpenAILLMService):
         """A service for interacting with Groq's API using the OpenAI-compatible interface.
@@ -54,6 +67,13 @@ async def main(room_url: str, token: str):
             logger.debug(f"Creating SEALION client with api {base_url}")
             return super().create_client(api_key, base_url, **kwargs)
 
+    class TranscriptionLogger(FrameProcessor):
+        async def process_frame(self, frame: Frame, direction: FrameDirection):
+            await super().process_frame(frame, direction)
+
+            if isinstance(frame, TranscriptionFrame):
+                print(f"Transcription: {frame.text}")
+
     async with aiohttp.ClientSession() as session:
         transport = DailyTransport(
             room_url,
@@ -61,11 +81,21 @@ async def main(room_url: str, token: str):
             "bot",
             DailyParams(
                 audio_out_enabled=True,
-                transcription_enabled=True,
                 vad_enabled=True,
                 vad_analyzer=SileroVADAnalyzer(),
+                vad_audio_passthrough=True,
             ),
         )
+
+        # Initialize Whisper STT
+        # stt = WhisperSTTService(model=Model.DISTIL_MEDIUM_EN, device="cuda", no_speech_prob=0.4)
+
+        stt = DeepgramSTTService(
+            api_key=os.getenv("DEEPGRAM_API_KEY"),
+            # live_options=LiveOptions(vad_events=True, utterance_end_ms="1000"),
+        )
+
+        # tl = TranscriptionLogger()
 
         # tts = CartesiaTTSService(
         #     api_key=os.getenv("CARTESIA_API_KEY", ""), voice_id="79a125e8-cd45-4c13-8a67-188112f4dd22"
@@ -95,6 +125,8 @@ async def main(room_url: str, token: str):
         pipeline = Pipeline(
             [
                 transport.input(),
+                stt,
+                # tl,
                 context_aggregator.user(),
                 llm,
                 tts,
@@ -112,6 +144,14 @@ async def main(room_url: str, token: str):
                 report_only_initial_ttfb=True,
             ),
         )
+
+        # @stt.event_handler("on_speech_started")
+        # async def on_speech_started(stt, *args, **kwargs):
+        #     await task.queue_frames([BotInterruptionFrame(), UserStartedSpeakingFrame()])
+
+        # @stt.event_handler("on_utterance_end")
+        # async def on_utterance_end(stt, *args, **kwargs):
+        #     await task.queue_frames([StopInterruptionFrame(), UserStoppedSpeakingFrame()])
 
         @transport.event_handler("on_first_participant_joined")
         async def on_first_participant_joined(transport, participant):
